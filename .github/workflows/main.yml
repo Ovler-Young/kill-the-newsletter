@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@main
       - uses: actions/setup-node@main
         with:
-          node-version: latest
+          node-version: 22.1.0
       - run: |
           npm install-ci-test
           npx package
