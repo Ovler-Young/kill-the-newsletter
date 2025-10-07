@@ -1616,7 +1616,6 @@ if (application.commandLineArguments.values.type === "email") {
           return [feed];
         });
         if (feeds.length === 0) {
-          // 检查是否配置了备用 feed
           if (
             application.configuration.fallbackFeed?.enabled === true &&
             typeof application.configuration.fallbackFeed?.publicId === "string"
@@ -1638,9 +1637,7 @@ if (application.commandLineArguments.values.type === "email") {
                 "EMAIL",
                 "FALLBACK",
                 "Using fallback feed for email from",
-                session.envelope.mailFrom === false
-                  ? ""
-                  : session.envelope.mailFrom.address,
+                (session.envelope.mailFrom as SMTPServerAddress).address,
                 "Original recipients:",
                 JSON.stringify(session.envelope.rcptTo.map(r => r.address)),
               );
