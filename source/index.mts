@@ -49,6 +49,10 @@ export type Application = {
     environment: "production" | "development";
     hstsPreload?: boolean;
     extraCaddyfile?: string;
+    fallbackFeed?: {
+      enabled: boolean;
+      publicId: string;
+    };
   };
   privateConfiguration: {
     ports: number[];
@@ -1611,7 +1615,49 @@ if (application.commandLineArguments.values.type === "email") {
           if (feed === undefined) return [];
           return [feed];
         });
-        if (feeds.length === 0) throw new Error("No valid recipients.");
+        if (feeds.length === 0) {
+          // 检查是否配置了备用 feed
+          if (
+            application.configuration.fallbackFeed?.enabled === true &&
+            typeof application.configuration.fallbackFeed?.publicId === "string"
+          ) {
+            const fallbackFeed = application.database.get<{
+              id: number;
+              publicId: string;
+            }>(
+              sql`
+                select "id", "publicId" 
+                from "feeds" 
+                where "publicId" = ${application.configuration.fallbackFeed.publicId};
+              `,
+            );
+            
+            if (fallbackFeed !== undefined) {
+              feeds.push(fallbackFeed);
+              utilities.log(
+                "EMAIL",
+                "FALLBACK",
+                "Using fallback feed for email from",
+                session.envelope.mailFrom === false
+                  ? ""
+                  : session.envelope.mailFrom.address,
+                "Original recipients:",
+                JSON.stringify(session.envelope.rcptTo.map(r => r.address)),
+              );
+            } else {
+              utilities.log(
+                "EMAIL",
+                "ERROR",
+                "Fallback feed not found:",
+                application.configuration.fallbackFeed.publicId,
+                "Please check your configuration",
+              );
+              throw new Error("No valid recipients.");
+            }
+          } else {
+            throw new Error("No valid recipients.");
+          }
+        }
         const email = await mailParser.simpleParser(emailStream);
         if (emailStream.sizeExceeded) throw new Error("Email is too big.");
         const feedEntryEnclosures = new Array<{ id: number }>();
